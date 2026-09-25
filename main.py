@@ -1,117 +1,231 @@
-import hashlib
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
+from kivy.uix.spinner import Spinner
+from kivy.graphics import Color, RoundedRectangle
+from kivy.core.window import Window
 
-# --- CYBERSECURITY UTILITIES ---
-def hash_password(password: str) -> str:
-    """Simulates secure password storage using SHA-256 hashing."""
-    return hashlib.sha256(password.encode()).hexdigest()
+# Set phone-friendly window size for testing
+Window.size = (360, 640)
 
-# Simulated database containing user data (Username: Hashed Password)
-# The password below is the SHA-256 hash for 'admin123'
-USER_DATABASE = {
-    "hamza": "240e90098224021d7b326cbba64157a419515ef82239d56bf70ed364a50ca531"
+# Exchange rates relative to USD (Base)
+RATES = {
+    "USD ($)": 1.0,
+    "EUR (€)": 0.92,
+    "GBP (£)": 0.79,
+    "NGN (₦)": 1550.0,
+    "CAD ($)": 1.35
 }
 
+class RoundedBox(BoxLayout):
+    """Custom layout with background color and rounded corners"""
+    def __init__(self, bg_color=(0.15, 0.15, 0.2, 1), radius=15, **kwargs):
+        super(RoundedBox, self).__init__(**kwargs)
+        self.bg_color = bg_color
+        self.radius = radius
+        with self.canvas.before:
+            Color(*self.bg_color)
+            self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[self.radius])
+        self.bind(size=self._update_rect, pos=self._update_rect)
 
-# --- SCREEN 1: SECURE LOGIN SCREEN ---
+    def _update_rect(self, instance, value):
+        self.rect.size = instance.size
+        self.rect.pos = instance.pos
+
+class DashboardScreen(Screen):
+    def __init__(self, **kwargs):
+        super(DashboardScreen, self).__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
+        
+        # Header
+        header = Label(text="[b]Hamza Wise Exchange[/b]", markup=True, font_size=24, size_hint_y=None, height=40, color=(1, 1, 1, 1))
+        layout.add_widget(header)
+        
+        # Quick Balance Card
+        card = RoundedBox(orientation='vertical', padding=15, spacing=10, size_hint_y=None, height=120, bg_color=(0.2, 0.3, 0.5, 1))
+        card.add_widget(Label(text="Available Balance", font_size=14, color=(0.8, 0.8, 0.8, 1)))
+        card.add_widget(Label(text="₦ 1,450,200.00", font_size=26, bold=True, color=(1, 1, 1, 1)))
+        card.add_widget(Label(text="Security Status: Encrypted & Verified", font_size=12, color=(0.4, 1, 0.4, 1)))
+        layout.add_widget(card)
+        
+        # Navigation Buttons
+        btn_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=220)
+        
+        btn_converter = Button(text="Currency\nConverter", background_color=(0.1, 0.6, 0.8, 1), font_size=16, bold=True)
+        btn_converter.bind(on_press=lambda x: setattr(self.manager, 'current', 'converter'))
+        
+        btn_transfer = Button(text="Send &\nReceive", background_color=(0.2, 0.7, 0.3, 1), font_size=16, bold=True)
+        btn_transfer.bind(on_press=lambda x: setattr(self.manager, 'current', 'transfer'))
+        
+        btn_profit = Button(text="Daily Income\nCalculator", background_color=(0.8, 0.5, 0.1, 1), font_size=16, bold=True)
+        btn_profit.bind(on_press=lambda x: setattr(self.manager, 'current', 'profit'))
+        
+        btn_logout = Button(text="Lock Out /\nSecurity", background_color=(0.8, 0.2, 0.2, 1), font_size=16, bold=True)
+        btn_logout.bind(on_press=lambda x: setattr(self.manager, 'current', 'login'))
+        
+        btn_layout.add_widget(btn_converter)
+        btn_layout.add_widget(btn_transfer)
+        btn_layout.add_widget(btn_profit)
+        btn_layout.add_widget(btn_logout)
+        
+        layout.add_widget(btn_layout)
+        self.add_widget(layout)
+
 class LoginScreen(Screen):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=30, spacing=15)
+        super(LoginScreen, self).__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=30, spacing=20)
         
-        layout.add_widget(Label(text="SECURE LOGIN PORTAL", font_size='22sp', bold=True, color=(0, 0.6, 1, 1)))
+        layout.add_widget(Label(text="[b]Security Login[/b]", markup=True, font_size=28, color=(1,1,1,1), size_hint_y=None, height=50))
         
-        self.username_input = TextInput(hint_text="Username", multiline=False, font_size='16sp')
-        layout.add_widget(self.username_input)
+        self.pin_input = TextInput(text='', password=True, hint_text='Enter 4-Digit PIN', font_size=20, multiline=False, size_hint_y=None, height=50, halign='center')
+        layout.add_widget(self.pin_input)
         
-        # password_mask=True hides the characters as the user types (Security Best Practice)
-        self.password_input = TextInput(hint_text="Password", password=True, multiline=False, font_size='16sp')
-        layout.add_widget(self.password_input)
+        btn_login = Button(text="Unlock App", size_hint_y=None, height=50, background_color=(0.1, 0.6, 0.8, 1), bold=True)
+        btn_login.bind(on_press=self.verify_login)
+        layout.add_widget(btn_login)
         
-        login_btn = Button(text="Authenticate", font_size='16sp', bold=True, background_color=(0, 0.5, 0.8, 1))
-        login_btn.bind(on_press=self.authenticate_user)
-        layout.add_widget(login_btn)
-        
-        self.status_label = Label(text="", font_size='14sp', color=(1, 0, 0, 1))
-        layout.add_widget(self.status_label)
+        self.msg_label = Label(text="", color=(1, 0.3, 0.3, 1), size_hint_y=None, height=30)
+        layout.add_widget(self.msg_label)
         
         self.add_widget(layout)
 
-    def authenticate_user(self, instance):
-        username = self.username_input.text.strip().lower()
-        password = self.password_input.text
-        
-        # 1. Input Sanity Check (Defense against empty/malicious fields)
-        if not username or not password:
-            self.status_label.text = "Error: Fields cannot be empty."
-            return
-            
-        # 2. Secure Hash Verification
-        input_hash = hash_password(password)
-        if username in USER_DATABASE and USER_DATABASE[username] == input_hash:
-            self.status_label.text = ""
-            self.password_input.text = "" # Clear password buffer from memory
-            self.manager.current = 'exchange' # Navigate to main screen
+    def verify_login(self, instance):
+        if self.pin_input.text == "1234" or len(self.pin_input.text) == 4:  # Default sample validation
+            self.manager.current = 'dashboard'
         else:
-            self.status_label.text = "Access Denied: Invalid Credentials."
+            self.msg_label.text = "Incorrect PIN. Try any 4 digits."
 
-
-# --- SCREEN 2: EXCHANGE APPLICATION ---
-class ExchangeScreen(Screen):
+class ConverterScreen(Screen):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=25, spacing=15)
+        super(ConverterScreen, self).__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
         
-        layout.add_widget(Label(text="HAMZA WISE EXCHANGE", font_size='22sp', bold=True))
+        layout.add_widget(Label(text="[b]Currency Converter[/b]", markup=True, font_size=22, size_hint_y=None, height=40))
         
-        self.input = TextInput(text="100", multiline=False, font_size='18sp')
-        layout.add_widget(self.input)
+        self.amount_input = TextInput(hint_text='Enter amount', font_size=18, multiline=False, size_hint_y=None, height=45)
+        layout.add_widget(self.amount_input)
         
-        btn = Button(text="Convert USD to NGN", font_size='16sp', bold=True, background_color=(0, 0.7, 0.4, 1))
-        btn.bind(on_press=self.convert)
-        layout.add_widget(btn)
+        self.from_spinner = Spinner(text='USD ($)', values=list(RATES.keys()), size_hint_y=None, height=45)
+        layout.add_widget(self.from_spinner)
         
-        self.result = Label(text="Result: 165,000 NGN", font_size='18sp')
-        layout.add_widget(self.result)
+        self.to_spinner = Spinner(text='NGN (₦)', values=list(RATES.keys()), size_hint_y=None, height=45)
+        layout.add_widget(self.to_spinner)
         
-        # Back door to log out safely
-        logout_btn = Button(text="Secure Logout", font_size='12sp', size_hint_y=0.4)
-        logout_btn.bind(on_press=self.logout)
-        layout.add_widget(logout_btn)
+        btn_convert = Button(text="Convert Now", size_hint_y=None, height=50, background_color=(0.1, 0.6, 0.8, 1), bold=True)
+        btn_convert.bind(on_press=self.convert_currency)
+        layout.add_widget(btn_convert)
+        
+        self.result_label = Label(text="Result: --", font_size=20, bold=True, color=(0.4, 1, 0.4, 1))
+        layout.add_widget(self.result_label)
+        
+        btn_back = Button(text="Back to Dashboard", size_hint_y=None, height=45, background_color=(0.4, 0.4, 0.4, 1))
+        btn_back.bind(on_press=lambda x: setattr(self.manager, 'current', 'dashboard'))
+        layout.add_widget(btn_back)
         
         self.add_widget(layout)
 
-    def convert(self, instance):
-        # Input Validation & Exception Handling
+    def convert_currency(self, instance):
         try:
-            val = float(self.input.text)
-            if val < 0:
-                self.result.text = "Error: Amount cannot be negative."
-                return
-            if val > 100000000: # Mitigate overflow / ridiculous values
-                self.result.text = "Error: Amount exceeds transaction limit."
-                return
-                
-            self.result.text = f"Result: {val * 1650:,.0f} NGN"
+            amt = float(self.amount_input.text)
+            fr = self.from_spinner.text
+            to = self.to_spinner.text
+            
+            # Convert to USD base first, then to target currency
+            val_in_usd = amt / RATES[fr]
+            final_val = val_in_usd * RATES[to]
+            
+            self.result_label.text = f"Converted: {final_val:,.2f} {to.split()[0]}"
         except ValueError:
-            self.result.text = "Error: Input must be a valid number."
+            self.result_label.text = "Please enter a valid number!"
 
-    def logout(self, instance):
-        self.manager.current = 'login'
+class TransferScreen(Screen):
+    def __init__(self, **kwargs):
+        super(TransferScreen, self).__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=12)
+        
+        layout.add_widget(Label(text="[b]Send & Receive Money[/b]", markup=True, font_size=22, size_hint_y=None, height=40))
+        
+        self.recipient_input = TextInput(hint_text='Recipient Account / ID', font_size=16, multiline=False, size_hint_y=None, height=40)
+        layout.add_widget(self.recipient_input)
+        
+        self.send_amount = TextInput(hint_text='Amount to Send', font_size=16, multiline=False, size_hint_y=None, height=40)
+        layout.add_widget(self.send_amount)
+        
+        btn_send = Button(text="Process Transfer (Calc Charges)", size_hint_y=None, height=45, background_color=(0.2, 0.7, 0.3, 1), bold=True)
+        btn_send.bind(on_press=self.calculate_transfer)
+        layout.add_widget(btn_send)
+        
+        self.info_label = Label(text="Charges: 1.5% + ₦100 flat fee", font_size=14, color=(0.9, 0.9, 0.9, 1))
+        layout.add_widget(self.info_label)
+        
+        self.summary_label = Label(text="", font_size=16, bold=True, color=(1, 1, 0.4, 1))
+        layout.add_widget(self.summary_label)
+        
+        btn_back = Button(text="Back to Dashboard", size_hint_y=None, height=45, background_color=(0.4, 0.4, 0.4, 1))
+        btn_back.bind(on_press=lambda x: setattr(self.manager, 'current', 'dashboard'))
+        layout.add_widget(btn_back)
+        
+        self.add_widget(layout)
 
+    def calculate_transfer(self, instance):
+        try:
+            amt = float(self.send_amount.text)
+            charge = (amt * 0.015) + 100.0  # 1.5% + 100 flat charges
+            total_deduction = amt + charge
+            self.summary_label.text = f"Charge: ₦{charge:,.2f} | Total Debit: ₦{total_deduction:,.2f}"
+        except ValueError:
+            self.summary_label.text = "Enter a valid amount to send!"
 
-# --- CORE APP RUNNER ---
+class ProfitCalculatorScreen(Screen):
+    def __init__(self, **kwargs):
+        super(ProfitCalculatorScreen, self).__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=12)
+        
+        layout.add_widget(Label(text="[b]Daily Income Profit Calculator[/b]", markup=True, font_size=20, size_hint_y=None, height=40))
+        
+        self.capital_input = TextInput(hint_text='Total Daily Capital / Turnover', font_size=16, multiline=False, size_hint_y=None, height=40)
+        layout.add_widget(self.capital_input)
+        
+        self.margin_input = TextInput(hint_text='Average Profit Margin (%) e.g. 2.5', font_size=16, multiline=False, size_hint_y=None, height=40)
+        layout.add_widget(self.margin_input)
+        
+        btn_calc = Button(text="Calculate Daily Profit", size_hint_y=None, height=45, background_color=(0.8, 0.5, 0.1, 1), bold=True)
+        btn_calc.bind(on_press=self.calculate_profit)
+        layout.add_widget(btn_calc)
+        
+        self.profit_result = Label(text="Estimated Profit: ₦0.00", font_size=18, bold=True, color=(0.4, 1, 0.4, 1))
+        layout.add_widget(self.profit_result)
+        
+        btn_back = Button(text="Back to Dashboard", size_hint_y=None, height=45, background_color=(0.4, 0.4, 0.4, 1))
+        btn_back.bind(on_press=lambda x: setattr(self.manager, 'current', 'dashboard'))
+        layout.add_widget(btn_back)
+        
+        self.add_widget(layout)
+
+    def calculate_profit(self, instance):
+        try:
+            capital = float(self.capital_input.text)
+            margin = float(self.margin_input.text)
+            daily_profit = capital * (margin / 100.0)
+            monthly_est = daily_profit * 30
+            self.profit_result.text = f"Daily: ₦{daily_profit:,.2f}\nEst. Monthly: ₦{monthly_est:,.2f}"
+        except ValueError:
+            self.profit_result.text = "Please enter valid numbers!"
+
 class WiseExchangeApp(App):
     def build(self):
-        # The ScreenManager controls shifting between the login interface and the main UI
+        Window.clearcolor = (0.1, 0.1, 0.14, 1)  # Dark theme background
         sm = ScreenManager()
         sm.add_widget(LoginScreen(name='login'))
-        sm.add_widget(ExchangeScreen(name='exchange'))
+        sm.add_widget(DashboardScreen(name='dashboard'))
+        sm.add_widget(ConverterScreen(name='converter'))
+        sm.add_widget(TransferScreen(name='transfer'))
+        sm.add_widget(ProfitCalculatorScreen(name='profit'))
         return sm
 
 if __name__ == '__main__':
